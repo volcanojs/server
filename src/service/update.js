@@ -4,7 +4,7 @@ const { SnapshotRaw } = require('../models')
 const { notifyDiff } = require('../notification')
 
 module.exports = (proto) => {
-  proto.set = async function ({ io, query }) {
+  proto.update = async function ({ io, query }) {
     const { ref, value } = query
     // TODO: might move `ref` validation outside, have something like `validateAndNormalizeRef(ref)`
     if (!ref) return Promise.reject(new Error(ref === '' ? 'Should not set `root`.' : 'Invalid `ref`.'))
@@ -15,14 +15,12 @@ module.exports = (proto) => {
     const mongoQuery = {
       _id,
     }
-    console.log(mongoQuery)
     if (!collName) return Promise.reject(new Error('`collName` not specified.'))
     const coll = this.db.collection(collName)
     let rootData, oldVal, newVal
     if (hasDocumentId) {
       try {
         const doc  = await coll.findOne(mongoQuery)
-        console.log(doc)
         if (!doc) rootData = {}
         else rootData = doc
       } catch (error) {
@@ -45,10 +43,11 @@ module.exports = (proto) => {
         curNode = curNode[childNodeName]
       }
     }
-    hasChild ? curNode[lastChildName] = value : rootData = value
-    const updatedCurNodeVal = hasChild ? curNode[lastChildName] : rootData
-
-    console.log(rootData)
+    if (hasChild) {
+      typeof curNode[lastChildName] === 'object' ? Object.assign(curNode[lastChildName], value) : curNode[lastChildName] = value
+    } else {
+      typeof rootData === 'object' ? Object.assign(rootData, value) : rootData = value
+    }
 
     // save change
     try {

@@ -5,6 +5,7 @@ function Service (db) {
 const proto = Service.prototype
 require('./get')(proto)
 require('./set')(proto)
+require('./update')(proto)
 
 require('./getAllDocsFromColl')(proto)
 
