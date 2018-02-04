@@ -132,7 +132,7 @@ const notifyNodeDiff = ({ io, service, ref, diff }) => {
 const Notify = {
   base: ({ io, ref, snapshot, eventType, prevChildKey }) => {
     const room = event = RoomName({ ref, eventType })
-    io.to(room).emit(event, snapshot, prevChildKey)
+    io.to(room).emit(event, { snapshotData: snapshot }, prevChildKey)
     console.log(`\nBroadcasted \`${eventType}\` event:`, event)
     console.log(' snapshot:\n ', JSON.stringify(snapshot))
   },

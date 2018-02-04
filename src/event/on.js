@@ -10,9 +10,10 @@ module.exports = async ({ socket, service }) => {
       const data = await service.get(query)
       switch (eventType) {
         case EVENT_TYPE.VALUE:
+          const result = { snapshotData: data }
           console.log(data)
           console.log(`${ref}-${eventType}-initing`)
-          data && socket.emit(`${ref}-${eventType}-initing`, data, () => {
+          data && socket.emit(`${ref}-${eventType}-initing`, result, () => {
             socket.emit(`${ref}-${eventType}-inited`)
           })
           break
@@ -22,7 +23,8 @@ module.exports = async ({ socket, service }) => {
           const keysCount = keys.length
           let i = 0
           const sendOne = () => {
-            socket.emit(`${ref}-${eventType}-initing`, data[keys[i]], () => {
+            const result = { snapshotData: data[keys[i]] }
+            socket.emit(`${ref}-${eventType}-initing`, result, () => {
               ++i
               if (i < keysCount) {
                 sendOne()
@@ -33,6 +35,7 @@ module.exports = async ({ socket, service }) => {
           }
           break
         default:
+          socket.emit(`${ref}-${eventType}-inited`)
           break
       }
     } catch (error) {
