@@ -1,6 +1,5 @@
 module.exports = async ({ socket, service, io }) => {
-  socket.on('volcano-set', async (params, onComplete) => {
-    const { query } = params
+  socket.on('volcano-set', async ({ query }, onComplete) => {
     try {
       const updatedSnapshotData = await service.set({ io, query })
       onComplete({ updatedSnapshotData })

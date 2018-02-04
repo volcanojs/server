@@ -1,15 +1,10 @@
 const EVENT_TYPE = require('./eventType')
 
 module.exports = async ({ socket, service }) => {
-  socket.on('volcano-on', async (params) => {
-    const { eventType, query } = params
+  socket.on('volcano-on', async ({ eventType, query }) => {
     const { ref } = query
     const room = `${ref}-${eventType}`
-    console.log(room)
-    socket.join(room, () => {
-      let rooms = Object.keys(socket.rooms);
-      console.log(rooms); // [ <socket.id>, 'room 237' ]
-    })
+    socket.join(room)
 
     try {
       const data = await service.get(query)
