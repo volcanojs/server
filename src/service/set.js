@@ -1,8 +1,10 @@
 const ObjectID = require('mongodb').ObjectID
-const { deepdiff, notifyDiff } = require('../utils')
+const { deepdiff } = require('../utils')
+const { SnapshotRaw } = require('../models')
+const { notifyDiff } = require('../notification')
 
 module.exports = (proto) => {
-  proto.set = async function ({socket, query}) {
+  proto.set = async function ({ io, query }) {
     const { ref, data } = query
     // TODO: might move `ref` validation outside, have something like `validateAndNormalizeRef(ref)`
     if (!ref) return Promise.reject(new Error(ref === '' ? 'Should not set `root`.' : 'Invalid `ref`.'))
@@ -61,7 +63,9 @@ module.exports = (proto) => {
       newVal._id && (typeof newVal._id === 'object') && (newVal._id = newVal._id.toHexString())
     }
     const diff = deepdiff({ oldVal, newVal })
-    notifyDiff({ socket, service: this, collName, diff })
-    return Promise.resolve('Everything\'s fine')
+    notifyDiff({ io, service: this, collName, diff })
+
+    const snapshot = SnapshotRaw({ ref, value: newVal })
+    return Promise.resolve(snapshot)
   }
 }

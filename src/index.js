@@ -24,7 +24,7 @@ MongoClient.connect(url, function(err, client) {
 
   io.on('connection', function (socket) {
     // TODO: handle operations on root
-    require('./events')(socket, service)
+    require('./event')({ io, socket, service })
   })
 })
 

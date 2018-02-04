@@ -1,17 +1,25 @@
 const EVENT_TYPE = require('./eventType')
 
-module.exports = async (socket, service) => {
+module.exports = async ({ socket, service }) => {
   socket.on('volcano-on', async (params) => {
     const { eventType, query } = params
     const { ref } = query
     const room = `${ref}-${eventType}`
-    socket.join(room)
+    console.log(room)
+    socket.join(room, () => {
+      let rooms = Object.keys(socket.rooms);
+      console.log(rooms); // [ <socket.id>, 'room 237' ]
+    })
 
     try {
       const data = await service.get(query)
       switch (eventType) {
         case EVENT_TYPE.VALUE:
-          data && socket.emit(`${ref}-${eventType}-initing`, data)
+          console.log(data)
+          console.log(`${ref}-${eventType}-initing`)
+          data && socket.emit(`${ref}-${eventType}-initing`, data, () => {
+            socket.emit(`${ref}-${eventType}-inited`)
+          })
           break
         case EVENT_TYPE.CHILD_ADDED:
           if (!data || typeof data !== 'object') return
@@ -21,7 +29,11 @@ module.exports = async (socket, service) => {
           const sendOne = () => {
             socket.emit(`${ref}-${eventType}-initing`, data[keys[i]], () => {
               ++i
-              if (i < keysCount) sendOne()
+              if (i < keysCount) {
+                sendOne()
+              } else {
+                socket.emit(`${ref}-${eventType}-inited`)
+              }
             })
           }
           break
