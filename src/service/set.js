@@ -48,8 +48,6 @@ module.exports = (proto) => {
     hasChild ? curNode[lastChildName] = value : rootData = value
     const updatedCurNodeVal = hasChild ? curNode[lastChildName] : rootData
 
-    console.log(rootData)
-
     // save change
     try {
       const updatedRecord = await coll.findOneAndUpdate(mongoQuery, { $set: rootData }, { returnOriginal: false, upsert: true })

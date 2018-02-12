@@ -1,0 +1,58 @@
+extends ../../layouts/layout.pug
+
+block content
+  section.uk-container.uk-section.uk-section-default(style='max-width: 720px;')
+    div.uk-container
+      h2 Dashboard
+      div(class='uk-child-width-1-3@s uk-grid-small uk-grid-match' uk-grid)
+        each project, idx in projects
+          div
+            div.uk-card.uk-card-default.uk-card-hover
+              div.uk-card-header
+                div.uk-grid-small.uk-flex-middle(uk-grid)
+                  div
+                    h3.uk-card-title.uk-margin-remove-bottom= project.name
+                    p.uk-text-meta.uk-margin-remove-top
+                      time(datetime=(new Date(project.createdAt)).toISOString())= (new Date(project.createdAt)).toISOString().split('T')[0]
+              div.uk-card-body
+                pre
+                  code= project._id
+              div.uk-card-footer.uk-text-right
+                button.uk-button.uk-button-danger delete
+        div
+          div.uk-card.uk-card-default.uk-card-hover.project-list-item__add
+            div.uk-card-body
+              a.uk-icon-button.uk-position-absolute.uk-transform-center(href='javascript:void(0)' style='left: 50%; top: 50%' uk-icon='plus' uk-toggle='target: #new-project-modal')
+  include new-project-modal.pug
+
+  script.
+    var newProjectNameInput = document.getElementById('new-project-name')
+    var createProjectButton = document.getElementById('create-project-button')
+    function onNewProjectNameInput (ele) {
+      if (ele.value) {
+        ele.className = 'uk-input uk-form-success'
+        createProjectButton.disabled = false
+      } else {
+        ele.className = 'uk-input uk-form-danger'
+        createProjectButton.disabled = true
+      }
+    }
+    function createProject() {
+      const name = newProjectNameInput.value
+      if (!name) return
+      fetch('http://localhost:2306/api/console/project', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      })
+      //- .then(json)
+      .then(function (data) {
+        console.log('Request succeeded with JSON response', data);
+      })
+      .catch(function (error) {
+        console.log('Request failed', error);
+      })
+    }

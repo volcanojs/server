@@ -1,0 +1,14 @@
+div#new-project-modal.uk-flex-top(uk-modal)
+  div.uk-modal-dialog.uk-margin-auto-vertical
+    button.uk-modal-close-default(uk-close)
+    div.uk-modal-header
+      h2.uk-modal-title New Project
+    div.uk-modal-body
+      form
+        filedset.uk-fieldset
+          div.uk-margin
+            label.uk-form-label(for='form-stacked-text') Project Name
+            input#new-project-name.uk-input(type='text' placeholder='e.g. wildfire' oninput='onNewProjectNameInput(this)')
+    div.uk-modal-footer.uk-text-right
+      button.uk-button.uk-button-default.uk-modal-close Cancel
+      button#create-project-button.uk-button.uk-button-primary(onclick='createProject()' disabled) Create
