@@ -1,58 +1,119 @@
 extends ../../layouts/layout.pug
 
 block content
-  section.uk-container.uk-section.uk-section-default(style='max-width: 720px;')
+  section#app.uk-container.uk-section.uk-section-default(style='max-width: 720px;')
     div.uk-container
       h2 Dashboard
       div(class='uk-child-width-1-3@s uk-grid-small uk-grid-match' uk-grid)
-        each project, idx in projects
-          div
-            div.uk-card.uk-card-default.uk-card-hover
-              div.uk-card-header
-                div.uk-grid-small.uk-flex-middle(uk-grid)
-                  div
-                    h3.uk-card-title.uk-margin-remove-bottom= project.name
-                    p.uk-text-meta.uk-margin-remove-top
-                      time(datetime=(new Date(project.createdAt)).toISOString())= (new Date(project.createdAt)).toISOString().split('T')[0]
-              div.uk-card-body
-                pre
-                  code= project._id
-              div.uk-card-footer.uk-text-right
-                button.uk-button.uk-button-danger delete
+        div(v-for='project in projects' :key='project._id')
+          div.uk-card.uk-card-default.uk-card-hover
+            div.uk-card-header
+              div.uk-grid-small.uk-flex-middle(uk-grid)
+                div
+                  h3.uk-card-title.uk-margin-remove-bottom {{project.name}}
+                  p.uk-text-meta.uk-margin-remove-top
+                    time {{formatDate(project.createdAt)}}
+            div.uk-card-body
+              pre
+                code {{project._id}}
+            div.uk-card-footer.uk-text-right
+              button#test.uk-button.uk-button-danger(
+                @click='deleteProject(project._id)'
+              ) delete
         div
           div.uk-card.uk-card-default.uk-card-hover.project-list-item__add
             div.uk-card-body
-              a.uk-icon-button.uk-position-absolute.uk-transform-center(href='javascript:void(0)' style='left: 50%; top: 50%' uk-icon='plus' uk-toggle='target: #new-project-modal')
-  include new-project-modal.pug
+              a.uk-icon-button.uk-position-absolute.uk-transform-center(style='left: 50%; top: 50%' uk-icon='plus' @click="showNewProjectModel")
+    include new-project-modal.pug
 
   script.
-    var newProjectNameInput = document.getElementById('new-project-name')
-    var createProjectButton = document.getElementById('create-project-button')
-    function onNewProjectNameInput (ele) {
-      if (ele.value) {
-        ele.className = 'uk-input uk-form-success'
-        createProjectButton.disabled = false
-      } else {
-        ele.className = 'uk-input uk-form-danger'
-        createProjectButton.disabled = true
-      }
-    }
-    function createProject() {
-      const name = newProjectNameInput.value
-      if (!name) return
-      fetch('http://localhost:2306/api/console/project', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+    const socket = io('http://localhost:2306')
+    var vm = new window.Vue({
+      el: '#app',
+      data () {
+        return {
+          projects: [],
+          newProjectName: '',
+          socket: socket,
+        }
+      },
+      computed: {
+        newProjectModal () {
+          return this.$refs.newProjectModal
         },
-        body: JSON.stringify({ name }),
-      })
-      //- .then(json)
-      .then(function (data) {
-        console.log('Request succeeded with JSON response', data);
-      })
-      .catch(function (error) {
-        console.log('Request failed', error);
-      })
-    }
+        canCreateProject () {
+          return !!this.newProjectName 
+        },
+      },
+      methods: {
+        showNewProjectModel () {
+          UIkit.modal(this.newProjectModal).show()
+        },
+        createProject () {
+          console.log('create project')
+          this.socket.emit('post /api/console/project', { name: this.newProjectName }, ({ error }) => {
+            if (error) {
+              UIkit.notification({
+                message: 'Failed to create project.',
+                status: 'danger',
+                pos: 'bottom-right',
+                timeout: 2000
+              })
+              return console.error(error)
+            }
+            UIkit.modal(this.newProjectModal).hide()
+            UIkit.notification({
+              message: `Created project ${this.newProjectName}.`,
+              status: 'success',
+              pos: 'bottom-right',
+              timeout: 2000
+            })
+            this.newProjectName = ''
+          })
+        },
+        deleteProject (_id) {
+          this.socket.emit('delete /api/console/project', { _id }, ({ error }) => {
+            if (error) {
+              UIkit.notification({
+                message: 'Failed to delete project.',
+                status: 'danger',
+                pos: 'bottom-right',
+                timeout: 2000
+              })
+              return console.error(error)
+            }
+            const idx = this.projects.findIndex(project => project._id === _id)
+            const name = this.projects[idx].name
+            this.projects.splice(idx, 1)
+            UIkit.notification({
+              message: `Project ${name} deleted.`,
+              status: 'success',
+              pos: 'bottom-right',
+              timeout: 2000
+            })
+          })
+        },
+        formatDate (timestamp) {
+          return (new Date(timestamp)).toISOString().split('T')[0]
+        },
+      },
+      created () {
+        this.socket.emit('/api/console/projects', {}, ({ data, error }) => {
+          if (error) return console.error(error)
+          for (let i = 0; i < data.length; i++) {
+            this.projects.push(data[i])
+          }
+
+          this.subToNewProject = (data) => {
+            this.projects.unshift(data)
+          }
+          this.socket.on('/api/console/project-new', this.subToNewProject)
+        })
+      },
+      mounted () {
+        UIkit.modal(this.newProjectModal)
+      },
+      beforeDestroy () {
+        this.socket.off('/api/console/project-new', this.subToNewProject)
+      },
+    })
