@@ -2,12 +2,13 @@ const EVENT_TYPE = require('./eventType')
 
 module.exports = async ({ socket, service }) => {
   socket.on('volcano-on', async ({ eventType, query }) => {
-    const { ref } = query
+    const { ref, bucketName } = query
     const room = `${ref}-${eventType}`
     socket.join(room)
 
     try {
       const data = await service.get(query)
+      console.log(eventType)
       switch (eventType) {
         case EVENT_TYPE.VALUE:
           const result = { snapshotData: data }
@@ -33,6 +34,7 @@ module.exports = async ({ socket, service }) => {
               }
             })
           }
+          if (keyCount) sendOne()
           break
         default:
           socket.emit(`${ref}-${eventType}-inited`)

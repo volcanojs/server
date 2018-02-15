@@ -2,9 +2,6 @@ const express = require('express')
 const app = express()
 const server = require('http').Server(app)
 const io = require('socket.io')(server)
-const mongodb = require('mongodb')
-const MongoClient = mongodb.MongoClient
-const ObjectID = mongodb.ObjectID
 const path = require('path')
 
 app.use(express.static(path.join(__dirname, 'public')))
@@ -15,61 +12,58 @@ app.set('view engine', 'pug')
 const bodyParser = require('body-parser')
 const jsonParser = bodyParser.json()
 
-// Connection URL
-const url = 'mongodb://localhost:27017'
-const dbName = 'volcanodb'
-const collName = 'volcano-server'
+const couchbase = require('couchbase')
+const cluster = new couchbase.Cluster('couchbase://localhost/')
+cluster.authenticate('Administrator', 'password')
+const clusterManager = cluster.manager('Administrator', 'password')
+const N1qlQuery = couchbase.N1qlQuery
 
-// Use connect method to connect to the server
-MongoClient.connect(url, (err, client) => {
-  if (err) throw new Error('MongoClient Error')
-  console.log("Connected successfully to server")
+app.get('/', (req, res) => {
+  res.render('pages/home')
+})
 
-  server.listen(2306)
+io.on('connection', function (socket) {
+  console.log('Welcome', socket.id)
+  // TODO: handle operations on root
+  const service = require('./service')()
+  require('./event')({ io, socket, service })
 
-  const db = client.db(dbName)
-  const coll = db.collection(collName)
-  const service = require('./service')(db)
-
-  app.get('/', (req, res) => {
-    res.render('pages/home')
+  socket.on('/api/console/projects', async (_, callback) => {
+    clusterManager.listBuckets((error, bucketsInfo) => {
+      if (error) {
+        console.log(`Listing buckets info failed:`, error)
+        callback({ error })
+      }
+      const bucketNames = bucketsInfo.map(bucket => bucket.name)
+      callback({ data: bucketNames })
+    })
   })
+  socket.on('post /api/console/project', async ({ name }, callback) => {
 
-  io.on('connection', function (socket) {
-    console.log('Welcome', socket.id)
-    // TODO: handle operations on root
-    require('./event')({ io, socket, service })
-
-    socket.on('/api/console/projects', async (_, callback) => {
-      console.log('Hi')
-      try {
-        const projects = await coll.find({}).sort( { createdAt: -1 } ).toArray()
-        console.log(projects)
-        callback({ data: projects })
-      } catch (error) {
+    clusterManager.createBucket(name, {}, (error) => {
+      if (error) {
+        console.log(`Creation of ${name} bucket failed:`, error)
         callback({ error })
       }
+      socket.emit('/api/console/project-new', name)
+      callback({ data: name })
     })
-    socket.on('post /api/console/project', async ({ name }, callback) => {
-      try {
-        const curTime = (new Date()).getTime()
-        const result = await coll.insertOne({ name, createdAt: curTime, updatedAt: curTime })
-        socket.emit('/api/console/project-new', result.ops[0])
-        callback({})
-      } catch (error) {
+  })
+  socket.on('delete /api/console/project', async ({ name }, callback) => {
+    clusterManager.removeBucket(name, (error) => {
+      if (error) {
+        console.log(`Could not delete ${name} bucket: `, error)
         callback({ error })
       }
-    })
-    socket.on('delete /api/console/project', async ({ _id }, callback) => {
-      try {
-        const curTime = (new Date()).getTime()
-        const result = await coll.deleteOne({ _id: ObjectID(_id) })
-        console.log(result)
-        callback({ error: result.deletedCount > 0 ? null : 'Failed to delete.' })
-      } catch (error) {
-        callback({ error })
-      }
+      callback({})
     })
   })
 })
 
+server.listen(2306)
+
+module.exports = {
+  cluster,
+  clusterManager,
+  N1qlQuery,
+}

@@ -34,7 +34,7 @@ footer {
 }
 
 .project-list-item__add {
-  min-height: 257px;
+  /* min-height: 257px; */
 }
 
 .project-list-item--add {

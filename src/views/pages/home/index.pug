@@ -10,15 +10,15 @@ block content
             div.uk-card-header
               div.uk-grid-small.uk-flex-middle(uk-grid)
                 div
-                  h3.uk-card-title.uk-margin-remove-bottom {{project.name}}
-                  p.uk-text-meta.uk-margin-remove-top
-                    time {{formatDate(project.createdAt)}}
+                  h3.uk-card-title.uk-margin-remove-bottom {{project}}
+                  //- p.uk-text-meta.uk-margin-remove-top
+                  //-   time {{formatDate(project.createdAt)}}
             div.uk-card-body
-              pre
-                code {{project._id}}
+              //- pre
+              //-   code {{project._id}}
             div.uk-card-footer.uk-text-right
               button#test.uk-button.uk-button-danger(
-                @click='deleteProject(project._id)'
+                @click='deleteProject(project)'
               ) delete
         div
           div.uk-card.uk-card-default.uk-card-hover.project-list-item__add
@@ -71,8 +71,8 @@ block content
             this.newProjectName = ''
           })
         },
-        deleteProject (_id) {
-          this.socket.emit('delete /api/console/project', { _id }, ({ error }) => {
+        deleteProject (name) {
+          this.socket.emit('delete /api/console/project', { name }, ({ error }) => {
             if (error) {
               UIkit.notification({
                 message: 'Failed to delete project.',
@@ -82,8 +82,7 @@ block content
               })
               return console.error(error)
             }
-            const idx = this.projects.findIndex(project => project._id === _id)
-            const name = this.projects[idx].name
+            const idx = this.projects.findIndex(project => project === name)
             this.projects.splice(idx, 1)
             UIkit.notification({
               message: `Project ${name} deleted.`,
