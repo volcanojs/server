@@ -3,7 +3,7 @@ const EVENT_TYPE = require('./eventType')
 module.exports = async ({ socket, service }) => {
   socket.on('volcano-on', async ({ eventType, query }) => {
     const { ref, bucketName } = query
-    const room = `${ref}-${eventType}`
+    const room = `${bucketName}-${ref}-${eventType}`
     socket.join(room)
 
     try {
@@ -13,9 +13,9 @@ module.exports = async ({ socket, service }) => {
         case EVENT_TYPE.VALUE:
           const result = { snapshotData: data }
           console.log(data)
-          console.log(`${ref}-${eventType}-initing`)
-          data && socket.emit(`${ref}-${eventType}-initing`, result, () => {
-            socket.emit(`${ref}-${eventType}-inited`)
+          console.log(`${room}-initing`)
+          data && socket.emit(`${room}-initing`, result, () => {
+            socket.emit(`${room}-inited`)
           })
           break
         case EVENT_TYPE.CHILD_ADDED:
@@ -25,19 +25,19 @@ module.exports = async ({ socket, service }) => {
           let i = 0
           const sendOne = () => {
             const result = { snapshotData: data[keys[i]] }
-            socket.emit(`${ref}-${eventType}-initing`, result, () => {
+            socket.emit(`${room}-initing`, result, () => {
               ++i
               if (i < keysCount) {
                 sendOne()
               } else {
-                socket.emit(`${ref}-${eventType}-inited`)
+                socket.emit(`${room}-inited`)
               }
             })
           }
           if (keyCount) sendOne()
           break
         default:
-          socket.emit(`${ref}-${eventType}-inited`)
+          socket.emit(`${room}-inited`)
           break
       }
     } catch (error) {
