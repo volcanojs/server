@@ -24,12 +24,19 @@ module.exports = (proto) => {
           return reject(error)
         }
         console.log('Query succeed!', results)
+      
+        if (!Array.isArray(results)) {
+          resolve({ ref, value: null })
+        } else if (results.length === 0) {
+          resolve({ ref, value: null })
+        } else {
+          const result = results[0]
+          const resultKeys = Object.keys(result)
+          if (resultKeys.length === 0) return resolve({ ref, value: null })
+          return resolve({ ref, value: result[resultKeys[0]] })
+        }
         // const snapshot = SnapshotRaw({ ref, value: curNode })
         // return resolve(snapshot)
-        const result = results[0]
-        const resultKeys = Object.keys(result)
-        if (resultKeys.length === 0) return resolve({ ref, value: null })
-        return resolve({ ref, value: result[resultKeys[0]] })
       })
     })
   }
