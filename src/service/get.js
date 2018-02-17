@@ -1,5 +1,5 @@
 const { SnapshotRaw } = require('../models')
-const { cluster, clusterManager, N1qlQuery } = require('../index')
+const { cluster, N1qlQuery } = require('../couchbase')
 module.exports = (proto) => {
   proto.get = function ({ ref, bucketName }) {
     return new Promise((resolve, reject) => {
@@ -26,8 +26,10 @@ module.exports = (proto) => {
         console.log('Query succeed!', results)
       
         if (!Array.isArray(results)) {
+          // Document doesn't exsit
           resolve({ ref, value: null })
         } else if (results.length === 0) {
+          // Document exist but content doesn't exist
           resolve({ ref, value: null })
         } else {
           const result = results[0]

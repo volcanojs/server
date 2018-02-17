@@ -2,78 +2,79 @@ const { arrayToObject, deepdiff, isEmptyData, RoomName } = require('../utils')
 const { SnapshotRaw } = require('../models')
 const EVENT_TYPE = require('../event/eventType')
 
-const notifyDiff = async ({ io, service, collName, diff }) => {
+const notifyDiff = async ({ io, service, bucketName, key, diff }) => {
   if (!diff) return
   // TODO: 测试 remove 事件的通知
-  const { oldVal, newVal, childAdded, childChanged, chiledRemoved } = diff
+  const { oldData, newData, childAdded, childChanged, chiledRemoved } = diff
   console.log('---diff---')
-  console.log(JSON.stringify(diff))
+  console.log(diff && JSON.stringify(diff))
   console.log('\n---old value---')
-  console.log(JSON.stringify(oldVal))
+  console.log(oldData && JSON.stringify(oldData))
   console.log('\n---new value---')
-  console.log(JSON.stringify(newVal))
-  const isCreate = isEmptyData(oldVal) && !isEmptyData(newVal)
-  const isRemove = !isEmptyData(oldVal) && isEmptyData(newVal)
+  console.log(newData && JSON.stringify(newData))
+  const isCreate = isEmptyData(oldData) && !isEmptyData(newData)
+  const isRemove = !isEmptyData(oldData) && isEmptyData(newData)
   const isChange = !isCreate && !isRemove
 
-  const docRef = `${collName}/${newVal._id}`
+  const docRef = `${bucketName}/${key}`
 
+  console.log(service)
   try {
-    const docsOfColl = await service.getAllDocsFromColl(collName)
+    const { value: rootValue, ids } = await service.getAllDocs(bucketName)
 
     // Notify value change of collection node
-    const newCollVal = arrayToObject(docsOfColl)
-    const collSnapshot = SnapshotRaw({ ref: collName, value: isEmptyData(newCollVal) ? null : newCollVal })
-    Notify.value({ io, ref: collName, snapshot: collSnapshot })
+    const rootSnapshot = SnapshotRaw({ ref: bucketName, value: isEmptyData(rootValue) ? null : rootValue })
+    Notify.value({ io, ref: bucketName, snapshot: rootSnapshot })
 
     if (isRemove) {
-      const docSnapshot = SnapshotRaw({ ref: docRef, value: oldVal })
-      Notify.chiledRemoved({ io, ref: collName, snapshot: docSnapshot })
+      const docSnapshot = SnapshotRaw({ ref: docRef, value: oldData })
+      Notify.chiledRemoved({ io, ref: bucketName, snapshot: docSnapshot })
     }
     
-    const docSnapshot = SnapshotRaw({ ref: docRef, value: newVal })
-    const curDocIndex = docsOfColl.findIndex(aDoc => aDoc._id.toHexString() === newVal._id)
-    const prevChildKey = curDocIndex === 0 ? null : docsOfColl[curDocIndex - 1]._id.toHexString()
+    const docSnapshot = SnapshotRaw({ ref: docRef, value: newData })
+    const curDocIndex = ids.findIndex(id => id === newData.id)
+    const prevChildKey = curDocIndex === 0 ? null : ids[curDocIndex - 1]
     
     if (isCreate) {
-      Notify.childAdded({ io, ref: collName, snapshot: docSnapshot, prevChildKey })
+      Notify.childAdded({ io, ref: bucketName, snapshot: docSnapshot, prevChildKey })
     }
     if (isChange) {
-      Notify.childChanged({ io, ref: collName, snapshot: docSnapshot, prevChildKey })
+      Notify.childChanged({ io, ref: bucketName, snapshot: docSnapshot, prevChildKey })
     }
   } catch (error) {
     return console.log(error)
   }
 
-  notifyNodeDiff({ io, service, ref: docRef, diff })
+  notifyNodeDiff({ io, ref: docRef, diff })
 }
 
-const notifyNodeDiff = ({ io, service, ref, diff }) => {
+const notifyNodeDiff = ({ io, ref, diff }) => {
   if (!diff) return
-  const { oldVal, newVal, childAdded, childChanged, chiledRemoved } = diff
-  const isCreate = oldVal === null && newVal !== null
-  const isRemove = oldVal !== null && newVal === null
+  const { oldData, newData, childAdded, childChanged, chiledRemoved } = diff
+  const isCreate = oldData === null && newData !== null
+  const isRemove = oldData !== null && newData === null
   const isChange = !isCreate && !isRemove
   
-  const nodeSnapshot = SnapshotRaw({ ref, value: newVal })
+  const nodeSnapshot = SnapshotRaw({ ref, value: newData })
 
   // Notify value change of current node
   Notify.value({ io, ref: ref, snapshot: nodeSnapshot })
 
   // Notify child change of current node
   if (chiledRemoved) {
+    // TODO: handleDeepChildRemoved
     const keys = Object.keys(chiledRemoved)
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
       const childDiff = chiledRemoved[key]
       const childRef = `${ref}/${key}`
-      const childVal = childDiff.oldVal
+      const childVal = childDiff.oldData
       const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
       Notify.chiledRemoved({ io, ref: ref, snapshot: childSnapshot })
     }
   }
   if (childAdded) {
-    const handleDeepChildAdded = ({ ref, value }) => {
+    const handleDeepChildAdded = ({ io, ref, value }) => {
       const keys = Object.keys(value)
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
@@ -87,11 +88,11 @@ const notifyNodeDiff = ({ io, service, ref, diff }) => {
         Notify.childAdded({ io, ref: ref, snapshot: childSnapshot, prevChildKey })
 
         // Notify value change of current child node
-        Notify.value({ io, ref: childRef, snapshot: childSnapshot })
-        if (typeof childVal === 'object') handleDeepChildAdded({ ref: childRef, value: childVal })
+        Notify.value({  io, ref: childRef, snapshot: childSnapshot })
+        if (typeof childVal === 'object') handleDeepChildAdded({ io, ref: childRef, value: childVal })
       }
     }
-    const parentChildrenKeys = Object.keys(diff.newVal)
+    const parentChildrenKeys = Object.keys(diff.newData)
     const keys = Object.keys(childAdded)
     console.log(childAdded)
     for (let i = 0; i < keys.length; i++) {
@@ -108,23 +109,23 @@ const notifyNodeDiff = ({ io, service, ref, diff }) => {
       Notify.value({ io, ref: childRef, snapshot: childSnapshot })
 
       // Notify value events of child nodes of this added child node
-      if (typeof childVal === 'object') handleDeepChildAdded({ ref: childRef, value: childVal })
+      if (typeof childVal === 'object' && childVal !== null) handleDeepChildAdded({ io, ref: childRef, value: childVal })
     }
   }
   if (childChanged) {
-    const parentChildrenKeys = Object.keys(diff.newVal)
+    const parentChildrenKeys = Object.keys(diff.newData)
     const keys = Object.keys(childChanged)
     console.log(JSON.stringify(childChanged))
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
       const childDiff = childChanged[key]
       const childRef = `${ref}/${key}`
-      const childVal = childDiff.newVal
+      const childVal = childDiff.newData
       const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
       const curChildIndex = parentChildrenKeys.findIndex(aChildKey => aChildKey === key)
       const prevChildKey = curChildIndex === 0 ? null : parentChildrenKeys[curChildIndex - 1]
       Notify.childChanged({ io, ref: ref, snapshot: childSnapshot, prevChildKey })
-      notifyNodeDiff({ io, service, ref: childRef, diff: childDiff })
+      notifyNodeDiff({ io, ref: childRef, diff: childDiff })
     }
   }
 }

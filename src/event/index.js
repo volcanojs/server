@@ -1,7 +1,7 @@
-module.exports = ({ io, socket, service }) => {
+module.exports = ({ socket, io }) => {
   // TODO: validate `ref`
   // require('./off')({ socket, service })
-  require('./on')({ io, socket, service })
-  // require('./set')({ io, socket, service })
+  require('./on')({ socket })
+  require('./set')({ socket, io })
   // require('./update')({ io, socket, service })
 }

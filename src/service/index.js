@@ -3,9 +3,11 @@ function Service () {
 }
 const proto = Service.prototype
 require('./get')(proto)
-// require('./set')(proto)
+require('./set')(proto)
 // require('./update')(proto)
 
-// require('./getAllDocsFromColl')(proto)
+require('./getAllDocs')(proto)
 
-module.exports = () => new Service()
+const service = new Service()
+
+module.exports = service
