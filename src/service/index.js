@@ -6,7 +6,7 @@ require('./get')(proto)
 require('./set')(proto)
 // require('./update')(proto)
 
-require('./getAllDocs')(proto)
+require('./getRoot')(proto)
 
 const service = new Service()
 

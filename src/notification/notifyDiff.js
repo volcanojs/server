@@ -18,12 +18,12 @@ const notifyDiff = async ({ io, service, bucketName, key, diff }) => {
 
   const docRef = `${bucketName}/${key}`
 
-  console.log(service)
   try {
-    const { value: rootValue, ids } = await service.getAllDocs(bucketName)
+    const rootData = await service.getRoot(bucketName)
+    const rootChildKeys = Object.keys(rootData)
 
     // Notify value change of collection node
-    const rootSnapshot = SnapshotRaw({ ref: bucketName, value: isEmptyData(rootValue) ? null : rootValue })
+    const rootSnapshot = SnapshotRaw({ ref: bucketName, value: isEmptyData(rootData) ? null : rootData })
     Notify.value({ io, ref: bucketName, snapshot: rootSnapshot })
 
     if (isRemove) {
@@ -32,8 +32,8 @@ const notifyDiff = async ({ io, service, bucketName, key, diff }) => {
     }
     
     const docSnapshot = SnapshotRaw({ ref: docRef, value: newData })
-    const curDocIndex = ids.findIndex(id => id === newData.id)
-    const prevChildKey = curDocIndex === 0 ? null : ids[curDocIndex - 1]
+    const curDocIndex = rootChildKeys.findIndex(childKey => childKey === key)
+    const prevChildKey = curDocIndex === 0 ? null : rootChildKeys[curDocIndex - 1]
     
     if (isCreate) {
       Notify.childAdded({ io, ref: bucketName, snapshot: docSnapshot, prevChildKey })
@@ -89,7 +89,9 @@ const notifyNodeDiff = ({ io, ref, diff }) => {
 
         // Notify value change of current child node
         Notify.value({  io, ref: childRef, snapshot: childSnapshot })
-        if (typeof childVal === 'object') handleDeepChildAdded({ io, ref: childRef, value: childVal })
+        if (typeof childVal === 'object' && childVal !== null) {
+          handleDeepChildAdded({ io, ref: childRef, value: childVal })
+        }
       }
     }
     const parentChildrenKeys = Object.keys(diff.newData)
@@ -109,7 +111,9 @@ const notifyNodeDiff = ({ io, ref, diff }) => {
       Notify.value({ io, ref: childRef, snapshot: childSnapshot })
 
       // Notify value events of child nodes of this added child node
-      if (typeof childVal === 'object' && childVal !== null) handleDeepChildAdded({ io, ref: childRef, value: childVal })
+      if (typeof childVal === 'object' && childVal !== null) {
+        handleDeepChildAdded({ io, ref: childRef, value: childVal })
+      }
     }
   }
   if (childChanged) {
