@@ -78,7 +78,6 @@ const notifyNodeDiff = ({ io, ref, diff }) => {
       const keys = Object.keys(value)
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i]
-        if (key === '_id') continue
         const childVal = value[key]
         const childRef =  `${ref}/${key}`
         const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
@@ -99,7 +98,6 @@ const notifyNodeDiff = ({ io, ref, diff }) => {
     console.log(childAdded)
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
-      if (key === '_id') continue
       const childVal = childAdded[key]
       const childRef = `${ref}/${key}`
       const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
