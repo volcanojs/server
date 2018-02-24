@@ -28,7 +28,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
       // Notify root level change [childRemoved]
       if (isRemove) {
         const firstLevelChildDataSnapshot = SnapshotRaw({ ref: firstLevelChildRef, value: oldData })
-        Notify.chiledRemoved({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot })
+        Notify.childRemoved({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot })
         return
       }
       
