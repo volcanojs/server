@@ -13,18 +13,7 @@ const deepdiff = ({oldData, newData}) => {
   })
   newKeys.forEach(key => {
     if (commonKeys.indexOf(key) === -1) {
-      const childVal = newData[key]
-      if (typeof childVal === 'object') {
-        result.childAdded[key] = {
-          oldData: null,
-          newData: childVal
-        }
-      } else {
-        result.childAdded[key] = {
-          oldData: null,
-          newData: childVal
-        }
-      }
+      result.childAdded[key] = newData[key]
     }
   })
   commonKeys.forEach(key => {

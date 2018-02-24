@@ -1,12 +1,10 @@
-function Service () {
-  if (!this) throw new Error('Should initialize "Service" with `new`')
+class Service {
+  constructor () {
+    this.get = require('./get').bind(this)
+    this.getRoot = require('./getRoot').bind(this)
+    this.set = require('./set').bind(this)
+  }
 }
-const proto = Service.prototype
-require('./get')(proto)
-require('./set')(proto)
-// require('./update')(proto)
-
-require('./getRoot')(proto)
 
 const service = new Service()
 

@@ -1,105 +1,103 @@
 const cloneDeep = require('lodash.clonedeep')
+const isPlainObject = require('lodash.isplainobject')
 const { deepdiff } = require('../utils')
-// const { SnapshotRaw } = require('../models')
 const { notifyDiff } = require('../notification')
 const { cluster, N1qlQuery } = require('../couchbase')
 
-module.exports = (proto) => {
-  proto.set = async function ({ query, io }) {
-    return new Promise((resolve, reject) => {
-      const { bucketName, ref, value } = query
-      if (!bucketName) return reject(new Error('`Project Name` not specified.'))
-      const nodes = ref.split('/')
-      const nodesL = nodes.length
+module.exports = async function ({ query, io }) {
+  console.log(this)
+  return new Promise((resolve, reject) => {
+    const { bucketName, ref, value } = query
+    if (!bucketName) return reject(new Error('`Project Name` not specified.'))
+    const nodes = ref.split('/')
+    const nodesL = nodes.length
 
-      let key = nodesL > 0 ? nodes[0] : ''
-      if (!key) return reject(new Error('Set `root` not allowed.'))
+    let key = nodesL > 0 ? nodes[0] : ''
+    if (!key) return reject(new Error('Set `root` not allowed.'))
 
-      const getDocQueryStr = `SELECT * FROM \`${bucketName}\` USE KEYS '${key}'`
+    const getDocQueryStr = `SELECT * FROM \`${bucketName}\` USE KEYS '${key}'`
 
-      console.log('getDocQueryStr:', getDocQueryStr)
-      let bucket
-      try {
-        bucket = cluster.openBucket(bucketName)
-      } catch(error) {
-        console.log(error)
+    console.log('getDocQueryStr:', getDocQueryStr)
+    let bucket
+    try {
+      bucket = cluster.openBucket(bucketName)
+    } catch(error) {
+      console.log(error)
+    }
+    const getDocQuery = N1qlQuery.fromString(getDocQueryStr)
+    bucket.query(getDocQuery, (error, results) => {
+      if (error) {
+        console.log('Get Query failed', error)
+        return reject(error)
       }
-      const getDocQuery = N1qlQuery.fromString(getDocQueryStr)
-      bucket.query(getDocQuery, (error, results) => {
-        if (error) {
-          console.log('Get Query failed', error)
-          return reject(error)
-        }
-        console.log('Get Query succeed!', results)
-        
-        let oldData
-        let newData
-        if (!Array.isArray(results) || results.length === 0) {
-          console.log('not found')
-          // 1. Document doesn't exsit, or
-          // 2. Document exist but content doesn't exist
-          oldData = {}
+      console.log('Get Query succeed!', results)
+      
+      let oldData
+      let newData
+      if (!Array.isArray(results) || results.length === 0) {
+        console.log('not found')
+        // 1. Document doesn't exsit, or
+        // 2. Document exist but content doesn't exist
+        oldData = {}
 
-          const childNodeNames = nodes.slice(1)
-          console.log(childNodeNames)
-          if (childNodeNames.length > 0) {
-            newData = {}
-            let curNode = newData
-            const childNodeNamesLastIdx = childNodeNames.length - 1
-            for (let i = 0; i < childNodeNamesLastIdx; i++) {
-              const childNodeName = childNodeNames[i]
+        const childNodeNames = nodes.slice(1)
+        console.log(childNodeNames)
+        if (childNodeNames.length > 0) {
+          newData = {}
+          let curNode = newData
+          const childNodeNamesLastIdx = childNodeNames.length - 1
+          for (let i = 0; i < childNodeNamesLastIdx; i++) {
+            const childNodeName = childNodeNames[i]
+            curNode[childNodeName] = {}
+            curNode = curNode[childNodeName]
+          }
+          curNode[childNodeNames[childNodeNamesLastIdx]] = value
+        } else {
+          newData = value
+        }
+      } else {
+        const result = results[0]
+        const resultKeys = Object.keys(result)
+        const childNodeNames = nodes.slice(1)
+        oldData = result[resultKeys[0]]
+        if (childNodeNames.length > 0) {
+          newData = cloneDeep(oldData)
+          let curNode = newData
+          const childNodeNamesLastIdx = childNodeNames.length - 1
+          for (let i = 0; i < childNodeNamesLastIdx; i++) {
+            const childNodeName = childNodeNames[i]
+            if (isPlainObject(curNode) && curNode[childNodeName]) {
+              curNode = curNode[childNodeName]
+            } else {
               curNode[childNodeName] = {}
               curNode = curNode[childNodeName]
             }
-            curNode[childNodeNames[childNodeNamesLastIdx]] = value
-          } else {
-            newData = value
           }
+          curNode[childNodeNames[childNodeNamesLastIdx]] = value
         } else {
-          const result = results[0]
-          const resultKeys = Object.keys(result)
-          const childNodeNames = nodes.slice(1)
-          oldData = result[resultKeys[0]]
-          if (childNodeNames.length > 0) {
-            newData = cloneDeep(oldData)
-            let curNode = newData
-            const childNodeNamesLastIdx = childNodeNames.length - 1
-            for (let i = 0; i < childNodeNamesLastIdx; i++) {
-              const childNodeName = childNodeNames[i]
-              if (typeof curNode === 'object' && curNode[childNodeName]) {
-                curNode = curNode[childNodeName]
-              } else {
-                curNode[childNodeName] = {}
-                curNode = curNode[childNodeName]
-              }
-              console.log(curNode)
-            }
-            curNode[childNodeNames[childNodeNamesLastIdx]] = value
-            console.log(curNode)
-          } else {
-            newData = value
-          }
+          newData = value
         }
+      }
 
 
-        const upsertQueryStr = `UPSERT INTO \`${bucketName}\` (KEY, VALUE) VALUES ("${key}", ${JSON.stringify(newData)}) RETURNING *`
-        console.log('upsertQueryStr:', upsertQueryStr)
-        const upsertQuery = N1qlQuery.fromString(upsertQueryStr)
-        bucket.query(upsertQuery, (error, results) => {
-          if (error) {
-            console.log('Upsert Query failed', error)
-            return reject(error)
-          }
-          console.log('Upsert Result', results)
-          console.log('oldData:', oldData)
-          console.log('newData:', newData)
+      const upsertQueryStr = `UPSERT INTO \`${bucketName}\` (KEY, VALUE) VALUES ("${key}", ${JSON.stringify(newData)})`
+      console.log('upsertQueryStr:', upsertQueryStr)
+      const upsertQuery = N1qlQuery.fromString(upsertQueryStr)
+      bucket.query(upsertQuery, (error, results) => {
+        if (error) {
+          console.log('Upsert Query failed', error)
+          return reject(error)
+        }
+        console.log('Upsert Result', results)
+        console.log('oldData:', oldData)
+        console.log('newData:', newData)
 
-          const diff = deepdiff({ oldData, newData })
-          notifyDiff({ io, service: this, bucketName, key, diff })
+        const diff = deepdiff({ oldData, newData })
+        console.log(this)
+        notifyDiff({ io, service: this, bucketName, key, diff })
 
-          return resolve()
-        })
+        return resolve()
       })
     })
-  }
+  })
 }
