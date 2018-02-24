@@ -1,2 +1,2 @@
-const RoomName = ({ ref, eventType, addition }) => `${ref}-${eventType}` + (addition ? `-${addition}` : '')
+const RoomName = ({ bucketName, ref, eventType, addition }) => `${bucketName}${ref}-${eventType}` + (addition ? `-${addition}` : '')
 module.exports = RoomName

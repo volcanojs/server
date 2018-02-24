@@ -3,5 +3,5 @@ module.exports = ({ socket, io }) => {
   // require('./off')({ socket, service })
   require('./on')({ socket })
   require('./set')({ socket, io })
-  // require('./update')({ io, socket, service })
+  require('./update')({ socket, io })
 }

@@ -1,4 +1,6 @@
+const isPlainObject = require('lodash.isplainobject')
 const service = require('../service')
+const { SnapshotRaw } = require('../models')
 const EVENT_TYPE = require('./eventType')
 
 module.exports = async ({ socket }) => {
@@ -12,20 +14,24 @@ module.exports = async ({ socket }) => {
       console.log(eventType)
       switch (eventType) {
         case EVENT_TYPE.VALUE:
-          const result = { snapshotData: data }
-          console.log(data)
           console.log(`${room}-initing`)
+          const snapshotRaw = SnapshotRaw({ ref, value: data })
+          const result = { snapshotRaw }
+          console.log(result)
           data && socket.emit(`${room}-initing`, result, () => {
             socket.emit(`${room}-inited`)
           })
           break
         case EVENT_TYPE.CHILD_ADDED:
-          if (!data || typeof data !== 'object') return
-          const keys = Object.keys(data)
+          if (!data || !isPlainObject(data)) return
+          const keys = orderedeys(snapshotRaw.value)
           const keysCount = keys.length
           let i = 0
           const sendOne = () => {
-            const result = { snapshotData: data[keys[i]] }
+            const childKey = keys[i]
+            const childRef = `${ref}/${childKey}`
+            const childSnapshotRaw = SnapshotRaw({ ref: childRef, value: data[childKey]})
+            const result = { snapshotRaw: childSnapshotRaw }
             socket.emit(`${room}-initing`, result, () => {
               ++i
               if (i < keysCount) {

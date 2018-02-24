@@ -5,7 +5,6 @@ const { notifyDiff } = require('../notification')
 const { cluster, N1qlQuery } = require('../couchbase')
 
 module.exports = async function ({ query, io }) {
-  console.log(this)
   return new Promise((resolve, reject) => {
     const { bucketName, ref, value } = query
     if (!bucketName) return reject(new Error('`Project Name` not specified.'))
@@ -93,7 +92,6 @@ module.exports = async function ({ query, io }) {
         console.log('newData:', newData)
 
         const diff = deepdiff({ oldData, newData })
-        console.log(this)
         notifyDiff({ io, service: this, bucketName, key, diff })
 
         return resolve()

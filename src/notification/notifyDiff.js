@@ -15,20 +15,20 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
     const isCreate = isEmptyData(oldData) && !isEmptyData(newData)
     const isRemove = !isEmptyData(oldData) && isEmptyData(newData)
   
-    const rootRef = `${bucketName}`
-    const firstLevelChildRef = `${rootRef}/${key}`
+    const rootRef = '/'
+    const firstLevelChildRef = `${rootRef}${key}`
   
     try {
       const rootData = await service.getRoot(bucketName)
   
       // Notify root level change [value]
       const rootDataSnapshot = SnapshotRaw({ ref: rootRef, value: rootData })
-      Notify.value({ ref: rootRef, snapshotRaw: rootDataSnapshot })
+      Notify.value({ bucketName, ref: rootRef, snapshotRaw: rootDataSnapshot })
   
       // Notify root level change [childRemoved]
       if (isRemove) {
         const firstLevelChildDataSnapshot = SnapshotRaw({ ref: firstLevelChildRef, value: oldData })
-        Notify.chiledRemoved({ ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot })
+        Notify.chiledRemoved({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot })
         return
       }
       
@@ -39,7 +39,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
       
       // Notify root level change [childAdded]
       if (isCreate) {
-        Notify.childAdded({ ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
+        Notify.childAdded({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
         return
       }
   
@@ -48,7 +48,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
        * if (isChange) {
        */
       // Notify root level change [childChanged]
-      Notify.childChanged({ ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
+      Notify.childChanged({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
       // Notify child change
       notifyChildDiff({ ref: firstLevelChildRef, diff })
       /**
@@ -67,7 +67,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
     const { oldData, newData, childAdded, childChanged, childRemoved } = diff
 
     const dataSnapshot = SnapshotRaw({ ref: ref, value: newData })
-    Notify.value({ ref, snapshotRaw: dataSnapshot })
+    Notify.value({ bucketName, ref, snapshotRaw: dataSnapshot })
     
     if (childAdded) {
       const childKeys = orderedKeys(childAdded)
@@ -76,7 +76,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
         const childData = childAdded[childKey]
         const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
         const prevChildKey = idx === 0 ? null : childKeys[idx - 1]
-        Notify.childAdded({ ref, snapshotRaw: childDataSnapshot, prevChildKey })
+        Notify.childAdded({ bucketName, ref, snapshotRaw: childDataSnapshot, prevChildKey })
       })
     }
     
@@ -86,7 +86,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
         const childRef = `${ref}/${childKey}`
         const childData = childRemoved[childKey]
         const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
-        Notify.childRemoved({ ref, snapshotRaw: childDataSnapshot })
+        Notify.childRemoved({ bucketName, ref, snapshotRaw: childDataSnapshot })
       })
     }
 
@@ -97,15 +97,15 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
         const childDiff = childChanged[childKey]
         const childData = childDiff.newData
         const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
-        Notify.childChanged({ ref, snapshotRaw: childDataSnapshot })
+        Notify.childChanged({ bucketName, ref, snapshotRaw: childDataSnapshot })
         notifyChildDiff({ ref: childRef, diff: childDiff })
       })
     }
   }
   
   const Notify = {
-    base: ({ ref, snapshotRaw, eventType, prevChildKey }) => {
-      const room = event = RoomName({ ref, eventType })
+    base: ({ bucketName, ref, snapshotRaw, eventType, prevChildKey }) => {
+      const room = event = RoomName({ bucketName, ref, eventType })
       // TODO: change client parameter name - snapshotData -> snapshotRaw
       io.to(room).emit(event, { snapshotRaw }, prevChildKey)
       console.log(`\nBroadcasted \`${eventType}\` event:`, event)
@@ -119,14 +119,16 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
 
       // Deep child added
       const data = snapshotRaw.value
+      console.log(data)
       if (isPlainObject(data)) {
         const childKeys = orderedKeys(data)
+        console.log(childKeys)
         childKeys.forEach((childKey, idx) => {
           const childRef = `${ref}/${childKey}`
           const childData = data[childKey]
           const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
           const prevChildKey = idx === 0 ? null : childKeys[idx - 1]
-          Notify.childAdded({ ref, snapshot: childDataSnapshot, prevChildKey })
+          Notify.childAdded({ ref, snapshotRaw: childDataSnapshot, prevChildKey })
         })
       }
     },
@@ -144,7 +146,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
           const childRef = `${ref}/${childKey}`
           const childData = data[childKey]
           const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
-          Notify.childRemoved({ ref, snapshot: childDataSnapshot })
+          Notify.childRemoved({ ref, snapshotRaw: childDataSnapshot })
         })
       }
     },

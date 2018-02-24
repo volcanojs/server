@@ -1,4 +1,3 @@
-const { SnapshotRaw } = require('../models')
 const { cluster, N1qlQuery } = require('../couchbase')
 module.exports = function ({ ref, bucketName }) {
   return new Promise((resolve, reject) => {
@@ -26,15 +25,15 @@ module.exports = function ({ ref, bucketName }) {
     
       if (!Array.isArray(results)) {
         // Document doesn't exsit
-        resolve(SnapshotRaw({ ref, value: null }))
+        resolve(SnapshotRaw(null))
       } else if (results.length === 0) {
         // Document exist but content doesn't exist
-        resolve(SnapshotRaw({ ref, value: null }))
+        resolve(SnapshotRaw(null))
       } else {
         const result = results[0]
         const resultKeys = Object.keys(result)
-        if (resultKeys.length === 0) return resolve({ ref, value: null })
-        return resolve(SnapshotRaw({ ref, value: result[resultKeys[0]] }))
+        if (resultKeys.length === 0) return resolve(null)
+        return resolve(result[resultKeys[0]])
       }
     })
   })
