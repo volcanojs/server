@@ -1,9 +1,10 @@
+const service = require('../service')
 const EVENT_TYPE = require('./eventType')
 
-module.exports = async ({ socket, service }) => {
+module.exports = async ({ socket }) => {
   socket.on('volcano-on', async ({ eventType, query }) => {
     const { ref, bucketName } = query
-    const room = `${bucketName}-${ref}-${eventType}`
+    const room = `${bucketName}/${ref}-${eventType}`
     socket.join(room)
 
     try {

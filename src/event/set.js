@@ -1,11 +1,11 @@
-module.exports = async ({ socket, service, io }) => {
+const service = require('../service')
+module.exports = async ({ socket, io }) => {
   socket.on('volcano-set', async ({ query }, onComplete) => {
     try {
-      const updatedSnapshotData = await service.set({ io, query })
-      onComplete({ updatedSnapshotData })
+      await service.set({ query, io })
+      onComplete()
     } catch (error) {
-      console.log(error)
-      onComplete({ error })
+      onComplete(error)
     }
   })
 }

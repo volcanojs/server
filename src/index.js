@@ -12,11 +12,13 @@ app.set('view engine', 'pug')
 const bodyParser = require('body-parser')
 const jsonParser = bodyParser.json()
 
-const couchbase = require('couchbase')
-const cluster = new couchbase.Cluster('couchbase://localhost/')
-cluster.authenticate('Administrator', 'password')
-const clusterManager = cluster.manager('Administrator', 'password')
-const N1qlQuery = couchbase.N1qlQuery
+const { clusterManager } = require('./couchbase')
+const service = require('./service')
+
+process.on('unhandledRejection', (reason, p) => {
+  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason);
+  // application specific logging, throwing an error, or other logic here
+})
 
 app.get('/', (req, res) => {
   res.render('pages/home')
@@ -25,8 +27,7 @@ app.get('/', (req, res) => {
 io.on('connection', function (socket) {
   console.log('Welcome', socket.id)
   // TODO: handle operations on root
-  const service = require('./service')()
-  require('./event')({ io, socket, service })
+  require('./event')({ socket, io })
 
   socket.on('/api/console/projects', async (_, callback) => {
     clusterManager.listBuckets((error, bucketsInfo) => {
@@ -61,9 +62,3 @@ io.on('connection', function (socket) {
 })
 
 server.listen(2306)
-
-module.exports = {
-  cluster,
-  clusterManager,
-  N1qlQuery,
-}
