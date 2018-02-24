@@ -1,5 +1,6 @@
 const cloneDeep = require('lodash.clonedeep')
 const isPlainObject = require('lodash.isplainobject')
+const cleanDeep = require('clean-deep')
 const { deepdiff } = require('../utils')
 const { notifyDiff } = require('../notification')
 const { cluster, N1qlQuery } = require('../couchbase')
@@ -78,6 +79,8 @@ module.exports = async function ({ query, io }) {
         }
       }
 
+      // Deep clean empty data
+      newData = cleanDeep(newData)
 
       const upsertQueryStr = `UPSERT INTO \`${bucketName}\` (KEY, VALUE) VALUES ("${key}", ${JSON.stringify(newData)})`
       console.log('upsertQueryStr:', upsertQueryStr)
