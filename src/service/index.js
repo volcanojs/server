@@ -1,12 +1,12 @@
-function Service (db) {
-  if (!this) throw new Error('Should initialize "Service" with `new`')
-  this.db = db
+class Service {
+  constructor () {
+    this.get = require('./get').bind(this)
+    this.getRoot = require('./getRoot').bind(this)
+    this.set = require('./set').bind(this)
+    this.update = require('./update').bind(this)
+  }
 }
-const proto = Service.prototype
-require('./get')(proto)
-require('./set')(proto)
-require('./update')(proto)
 
-require('./getAllDocsFromColl')(proto)
+const service = new Service()
 
-module.exports = (db) => new Service(db)
+module.exports = service

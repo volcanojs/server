@@ -1,153 +1,160 @@
-const { arrayToObject, deepdiff, isEmptyData, RoomName } = require('../utils')
+const isPlainObject = require('lodash.isplainobject')
+const { deepdiff, isEmptyData, orderedKeys, RoomName } = require('../utils')
 const { SnapshotRaw } = require('../models')
 const EVENT_TYPE = require('../event/eventType')
 
-const notifyDiff = async ({ io, service, collName, diff }) => {
-  if (!diff) return
-  // TODO: 测试 remove 事件的通知
-  const { oldVal, newVal, childAdded, childChanged, chiledRemoved } = diff
-  console.log('---diff---')
-  console.log(JSON.stringify(diff))
-  console.log('\n---old value---')
-  console.log(JSON.stringify(oldVal))
-  console.log('\n---new value---')
-  console.log(JSON.stringify(newVal))
-  const isCreate = isEmptyData(oldVal) && !isEmptyData(newVal)
-  const isRemove = !isEmptyData(oldVal) && isEmptyData(newVal)
-  const isChange = !isCreate && !isRemove
-
-  const docRef = `${collName}/${newVal._id}`
-
-  try {
-    const docsOfColl = await service.getAllDocsFromColl(collName)
-
-    // Notify value change of collection node
-    const newCollVal = arrayToObject(docsOfColl)
-    const collSnapshot = SnapshotRaw({ ref: collName, value: isEmptyData(newCollVal) ? null : newCollVal })
-    Notify.value({ io, ref: collName, snapshot: collSnapshot })
-
-    if (isRemove) {
-      const docSnapshot = SnapshotRaw({ ref: docRef, value: oldVal })
-      Notify.chiledRemoved({ io, ref: collName, snapshot: docSnapshot })
-    }
-    
-    const docSnapshot = SnapshotRaw({ ref: docRef, value: newVal })
-    const curDocIndex = docsOfColl.findIndex(aDoc => aDoc._id.toHexString() === newVal._id)
-    const prevChildKey = curDocIndex === 0 ? null : docsOfColl[curDocIndex - 1]._id.toHexString()
-    
-    if (isCreate) {
-      Notify.childAdded({ io, ref: collName, snapshot: docSnapshot, prevChildKey })
-    }
-    if (isChange) {
-      Notify.childChanged({ io, ref: collName, snapshot: docSnapshot, prevChildKey })
-    }
-  } catch (error) {
-    return console.log(error)
-  }
-
-  notifyNodeDiff({ io, service, ref: docRef, diff })
-}
-
-const notifyNodeDiff = ({ io, service, ref, diff }) => {
-  if (!diff) return
-  const { oldVal, newVal, childAdded, childChanged, chiledRemoved } = diff
-  const isCreate = oldVal === null && newVal !== null
-  const isRemove = oldVal !== null && newVal === null
-  const isChange = !isCreate && !isRemove
+const notifyDiff = ({ io, service, bucketName, key, diff }) => {
+  console.log(Object.keys(service))
+  // define methods
+  const notifyRootDiff = async ({ bucketName, key, diff }) => {
+    if (!diff) return
   
-  const nodeSnapshot = SnapshotRaw({ ref, value: newVal })
-
-  // Notify value change of current node
-  Notify.value({ io, ref: ref, snapshot: nodeSnapshot })
-
-  // Notify child change of current node
-  if (chiledRemoved) {
-    const keys = Object.keys(chiledRemoved)
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i]
-      const childDiff = chiledRemoved[key]
-      const childRef = `${ref}/${key}`
-      const childVal = childDiff.oldVal
-      const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
-      Notify.chiledRemoved({ io, ref: ref, snapshot: childSnapshot })
-    }
-  }
-  if (childAdded) {
-    const handleDeepChildAdded = ({ ref, value }) => {
-      const keys = Object.keys(value)
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]
-        if (key === '_id') continue
-        const childVal = value[key]
-        const childRef =  `${ref}/${key}`
-        const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
-        const prevChildKey = i === 0 ? null : keys[i - 1]
-
-        // Notify value events of child nodes of this child node
-        Notify.childAdded({ io, ref: ref, snapshot: childSnapshot, prevChildKey })
-
-        // Notify value change of current child node
-        Notify.value({ io, ref: childRef, snapshot: childSnapshot })
-        if (typeof childVal === 'object') handleDeepChildAdded({ ref: childRef, value: childVal })
+    // Notify root level change
+    const { oldData, newData } = diff
+  
+    const isCreate = isEmptyData(oldData) && !isEmptyData(newData)
+    const isRemove = !isEmptyData(oldData) && isEmptyData(newData)
+  
+    const rootRef = '/'
+    const firstLevelChildRef = `${rootRef}${key}`
+  
+    try {
+      const rootData = await service.getRoot(bucketName)
+  
+      // Notify root level change [value]
+      const rootDataSnapshot = SnapshotRaw({ ref: rootRef, value: rootData })
+      Notify.value({ bucketName, ref: rootRef, snapshotRaw: rootDataSnapshot })
+  
+      // Notify root level change [childRemoved]
+      if (isRemove) {
+        const firstLevelChildDataSnapshot = SnapshotRaw({ ref: firstLevelChildRef, value: oldData })
+        Notify.childRemoved({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot })
+        return
       }
-    }
-    const parentChildrenKeys = Object.keys(diff.newVal)
-    const keys = Object.keys(childAdded)
-    console.log(childAdded)
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i]
-      if (key === '_id') continue
-      const childVal = childAdded[key]
-      const childRef = `${ref}/${key}`
-      const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
-      const curChildIndex = parentChildrenKeys.findIndex(aChildKey => aChildKey === key)
-      const prevChildKey = curChildIndex === 0 ? null : parentChildrenKeys[curChildIndex - 1]
-      Notify.childAdded({ io, ref: ref, snapshot: childSnapshot, prevChildKey })
-
-      // Notify value change of added child node
-      Notify.value({ io, ref: childRef, snapshot: childSnapshot })
-
-      // Notify value events of child nodes of this added child node
-      if (typeof childVal === 'object') handleDeepChildAdded({ ref: childRef, value: childVal })
-    }
-  }
-  if (childChanged) {
-    const parentChildrenKeys = Object.keys(diff.newVal)
-    const keys = Object.keys(childChanged)
-    console.log(JSON.stringify(childChanged))
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i]
-      const childDiff = childChanged[key]
-      const childRef = `${ref}/${key}`
-      const childVal = childDiff.newVal
-      const childSnapshot = SnapshotRaw({ ref: childRef, value: childVal })
-      const curChildIndex = parentChildrenKeys.findIndex(aChildKey => aChildKey === key)
-      const prevChildKey = curChildIndex === 0 ? null : parentChildrenKeys[curChildIndex - 1]
-      Notify.childChanged({ io, ref: ref, snapshot: childSnapshot, prevChildKey })
-      notifyNodeDiff({ io, service, ref: childRef, diff: childDiff })
+      
+      const rootChildKeys = orderedKeys(rootData)
+      const firstLevelChildDataSnapshot = SnapshotRaw({ ref: firstLevelChildRef, value: newData })
+      const curChildIndex = rootChildKeys.findIndex(childKey => childKey === key)
+      const prevChildKey = curChildIndex === 0 ? null : rootChildKeys[curChildIndex - 1]
+      
+      // Notify root level change [childAdded]
+      if (isCreate) {
+        Notify.childAdded({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
+        return
+      }
+  
+      /**
+       * const isChange = !isCreate && !isRemove
+       * if (isChange) {
+       */
+      // Notify root level change [childChanged]
+      Notify.childChanged({ bucketName, ref: rootRef, snapshotRaw: firstLevelChildDataSnapshot, prevChildKey })
+      // Notify child change
+      notifyChildDiff({ ref: firstLevelChildRef, diff })
+      /**
+       * }
+       */
+      return
+    } catch (error) {
+      // TODO: logger
+      console.log('[notifyDiff] Error: failed to notify root level change.')
+      console.log(error)
+      return
     }
   }
+  
+  const notifyChildDiff = ({ ref, diff }) => {
+    const { oldData, newData, childAdded, childChanged, childRemoved } = diff
+
+    const dataSnapshot = SnapshotRaw({ ref: ref, value: newData })
+    Notify.value({ bucketName, ref, snapshotRaw: dataSnapshot })
+    
+    if (childAdded) {
+      const childKeys = orderedKeys(childAdded)
+      childKeys.forEach((childKey, idx) => {
+        const childRef = `${ref}/${childKey}`
+        const childData = childAdded[childKey]
+        const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
+        const prevChildKey = idx === 0 ? null : childKeys[idx - 1]
+        Notify.childAdded({ bucketName, ref, snapshotRaw: childDataSnapshot, prevChildKey })
+      })
+    }
+    
+    if (childRemoved) {
+      const childKeys = orderedKeys(childRemoved)
+      childKeys.forEach((childKey) => {
+        const childRef = `${ref}/${childKey}`
+        const childData = childRemoved[childKey]
+        const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
+        Notify.childRemoved({ bucketName, ref, snapshotRaw: childDataSnapshot })
+      })
+    }
+
+    if (childChanged) {
+      const childKeys = orderedKeys(childChanged)
+      childKeys.forEach((childKey) => {
+        const childRef = `${ref}/${childKey}`
+        const childDiff = childChanged[childKey]
+        const childData = childDiff.newData
+        const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
+        Notify.childChanged({ bucketName, ref, snapshotRaw: childDataSnapshot })
+        notifyChildDiff({ ref: childRef, diff: childDiff })
+      })
+    }
+  }
+  
+  const Notify = {
+    base: ({ bucketName, ref, snapshotRaw, eventType, prevChildKey }) => {
+      const room = event = RoomName({ bucketName, ref, eventType })
+      // TODO: change client parameter name - snapshotData -> snapshotRaw
+      io.to(room).emit(event, { snapshotRaw }, prevChildKey)
+      console.log(`\nBroadcasted \`${eventType}\` event:`, event)
+      console.log(' snapshotRaw:\n ', JSON.stringify(snapshotRaw))
+    },
+    value: (args) => {
+      Notify.base({ ...args, eventType: EVENT_TYPE.VALUE })
+    },
+    childAdded: ({ ref, snapshotRaw, ...args}) => {
+      Notify.base({ ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_ADDED })
+
+      // Deep child added
+      const data = snapshotRaw.value
+      console.log(data)
+      if (isPlainObject(data)) {
+        const childKeys = orderedKeys(data)
+        console.log(childKeys)
+        childKeys.forEach((childKey, idx) => {
+          const childRef = `${ref}/${childKey}`
+          const childData = data[childKey]
+          const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
+          const prevChildKey = idx === 0 ? null : childKeys[idx - 1]
+          Notify.childAdded({ ref, snapshotRaw: childDataSnapshot, prevChildKey })
+        })
+      }
+    },
+    childChanged: (args) => {
+      Notify.base({ ...args, eventType: EVENT_TYPE.CHILD_CHANGED })
+    },
+    childRemoved: ({ ref, snapshotRaw, ...args}) => {
+      Notify.base({ ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_REMOVED })
+
+      // Deep child removed
+      const data = snapshotRaw.value
+      if (isPlainObject(data)) {
+        const childKeys = orderedKeys(data)
+        childKeys.forEach((childKey) => {
+          const childRef = `${ref}/${childKey}`
+          const childData = data[childKey]
+          const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
+          Notify.childRemoved({ ref, snapshotRaw: childDataSnapshot })
+        })
+      }
+    },
+  }
+
+  // execute
+  notifyRootDiff({ bucketName, key, diff })
 }
 
-const Notify = {
-  base: ({ io, ref, snapshot, eventType, prevChildKey }) => {
-    const room = event = RoomName({ ref, eventType })
-    io.to(room).emit(event, { snapshotData: snapshot }, prevChildKey)
-    console.log(`\nBroadcasted \`${eventType}\` event:`, event)
-    console.log(' snapshot:\n ', JSON.stringify(snapshot))
-  },
-  value: (params) => {
-    Notify.base({ ...params, eventType: EVENT_TYPE.VALUE })
-  },
-  childAdded: (params) => {
-    Notify.base({ ...params, eventType: EVENT_TYPE.CHILD_ADDED })
-  },
-  childChanged: (params) => {
-    Notify.base({ ...params, eventType: EVENT_TYPE.CHILD_CHANGED })
-  },
-  childMoved: (params) => {
-    Notify.base({ ...params, eventType: EVENT_TYPE.CHILD_REMOVED })
-  },
-}
 
 module.exports = notifyDiff

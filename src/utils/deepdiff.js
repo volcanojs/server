@@ -1,34 +1,23 @@
-const deepdiff = ({oldVal, newVal}) => {
-  if (typeof oldVal !== 'object' || typeof newVal !== 'object' || oldVal === null || newVal === null) {
-    return newVal !== oldVal ? { oldVal, newVal } : null
+const deepdiff = ({oldData, newData}) => {
+  if (typeof oldData !== 'object' || typeof newData !== 'object' || oldData === null || newData === null) {
+    return newData !== oldData ? { oldData, newData } : null
   }
-  const oldKeys = Object.keys(oldVal)
-  const newKeys = Object.keys(newVal)
+  const oldKeys = Object.keys(oldData)
+  const newKeys = Object.keys(newData)
   const commonKeys = newKeys.filter(key => oldKeys.indexOf(key) !== -1)
   const result = { childRemoved: {}, childAdded: {}, childChanged: {} }
   oldKeys.forEach(key => {
     if (commonKeys.indexOf(key) === -1) {
-      result.childRemoved[key] = oldVal[key]
+      result.childRemoved[key] = oldData[key]
     }
   })
   newKeys.forEach(key => {
     if (commonKeys.indexOf(key) === -1) {
-      const childVal = newVal[key]
-      if (typeof childVal === 'object') {
-        result.childAdded[key] = {
-          oldVal: null,
-          newVal: childVal
-        }
-      } else {
-        result.childAdded[key] = {
-          oldVal: null,
-          newVal: childVal
-        }
-      }
+      result.childAdded[key] = newData[key]
     }
   })
   commonKeys.forEach(key => {
-    const diffAtKey = deepdiff({ oldVal: oldVal[key], newVal: newVal[key] })
+    const diffAtKey = deepdiff({ oldData: oldData[key], newData: newData[key] })
     if (diffAtKey) {
       result.childChanged[key] = diffAtKey
     }
@@ -39,8 +28,8 @@ const deepdiff = ({oldVal, newVal}) => {
   if (Object.keys(result).length === 0) {
     return null
   } else {
-    result.oldVal = oldVal
-    result.newVal = newVal
+    result.oldData = oldData
+    result.newData = newData
     return result
   }
 }

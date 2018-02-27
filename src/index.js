@@ -1,30 +1,64 @@
-const app = require('express')()
+const express = require('express')
+const app = express()
 const server = require('http').Server(app)
 const io = require('socket.io')(server)
-const MongoClient = require('mongodb').MongoClient
-const assert = require('assert')
+const path = require('path')
 
-server.listen(2306)
+app.use(express.static(path.join(__dirname, 'public')))
 
-app.get('/', function (req, res) {
-  res.sendfile(__dirname + '/index.html')
+app.set('views', path.join(__dirname, '/views'))
+app.set('view engine', 'pug')
+
+const bodyParser = require('body-parser')
+const jsonParser = bodyParser.json()
+
+const { clusterManager } = require('./couchbase')
+const service = require('./service')
+
+process.on('unhandledRejection', (reason, p) => {
+  console.log('Unhandled Rejection at: Promise', p, 'reason:', reason);
+  // application specific logging, throwing an error, or other logic here
 })
 
-// Connection URL
-const url = 'mongodb://localhost:27017'
-const dbName = 'volcano-server'
+app.get('/', (req, res) => {
+  res.render('pages/home')
+})
 
-// Use connect method to connect to the server
-MongoClient.connect(url, function(err, client) {
-  assert.equal(null, err)
-  console.log("Connected successfully to server")
+io.on('connection', function (socket) {
+  console.log('Welcome', socket.id)
+  // TODO: handle operations on root
+  require('./event')({ socket, io })
 
-  const db = client.db(dbName)
-  const service = require('./service')(db)
+  socket.on('/api/console/projects', async (_, callback) => {
+    clusterManager.listBuckets((error, bucketsInfo) => {
+      if (error) {
+        console.log(`Listing buckets info failed:`, error)
+        callback({ error })
+      }
+      const bucketNames = bucketsInfo.map(bucket => bucket.name)
+      callback({ data: bucketNames })
+    })
+  })
+  socket.on('post /api/console/project', async ({ name }, callback) => {
 
-  io.on('connection', function (socket) {
-    // TODO: handle operations on root
-    require('./event')({ io, socket, service })
+    clusterManager.createBucket(name, {}, (error) => {
+      if (error) {
+        console.log(`Creation of ${name} bucket failed:`, error)
+        callback({ error })
+      }
+      socket.emit('/api/console/project-new', name)
+      callback({ data: name })
+    })
+  })
+  socket.on('delete /api/console/project', async ({ name }, callback) => {
+    clusterManager.removeBucket(name, (error) => {
+      if (error) {
+        console.log(`Could not delete ${name} bucket: `, error)
+        callback({ error })
+      }
+      callback({})
+    })
   })
 })
 
+server.listen(2306)

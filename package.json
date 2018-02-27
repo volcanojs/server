@@ -1,11 +1,11 @@
 {
   "name": "volcano-server",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "Server side.",
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "clear && node ./src/index.js"
+    "start": "clear && nodemon ./src/index.js"
   },
   "repository": {
     "type": "git",
@@ -18,10 +18,19 @@
   },
   "homepage": "https://github.com/volcanojs/server#readme",
   "dependencies": {
-    "assert": "^1.4.1",
+    "body-parser": "^1.18.2",
+    "clean-deep": "^3.0.2",
+    "couchbase": "^2.4.3",
     "express": "^4.16.2",
-    "mongodb": "^3.0.2",
+    "lodash.clonedeep": "^4.5.0",
+    "lodash.isplainobject": "^4.0.6",
+    "lodash.merge": "^4.6.1",
+    "lodash.orderby": "^4.6.0",
+    "pug": "^2.0.0-rc.4",
     "socket.io": "^2.0.4",
     "targaryen": "^3.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^1.14.12"
   }
 }

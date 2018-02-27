@@ -1,0 +1,21 @@
+div.uk-flex-top(ref="newProjectModal")
+  div.uk-modal-dialog.uk-margin-auto-vertical
+    div.uk-modal-header
+      h2.uk-modal-title New Project
+    div.uk-modal-body
+      form
+        filedset.uk-fieldset
+          div.uk-margin
+            label.uk-form-label(for="form-stacked-text") Project Name
+            input.uk-input(
+              type="text" 
+              placeholder="e.g. wildfire" 
+              v-model="newProjectName" 
+              :class='{ "uk-form-success": canCreateProject, "uk-form-danger": !canCreateProject }', 
+            )
+    div.uk-modal-footer.uk-text-right
+      button.uk-button.uk-button-default.uk-modal-close Cancel
+      button.uk-button.uk-button-primary(
+        @click="createProject" 
+        :disabled="!canCreateProject"
+      ) Create
