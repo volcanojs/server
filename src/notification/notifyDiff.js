@@ -3,6 +3,11 @@ const { deepdiff, isEmptyData, orderedKeys, RoomName } = require('../utils')
 const { SnapshotRaw } = require('../models')
 const EVENT_TYPE = require('../event/eventType')
 
+// FIXME: 
+// roadcasted `child_removed` event: undefined/comments-child_removed
+// snapshotRaw:
+// {"ref":"/comments/gf","value":"Catherine"}
+
 const notifyDiff = ({ io, service, bucketName, key, diff }) => {
   console.log(Object.keys(service))
   // define methods
@@ -106,16 +111,15 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
   const Notify = {
     base: ({ bucketName, ref, snapshotRaw, eventType, prevChildKey }) => {
       const room = event = RoomName({ bucketName, ref, eventType })
-      // TODO: change client parameter name - snapshotData -> snapshotRaw
       io.to(room).emit(event, { snapshotRaw }, prevChildKey)
       console.log(`\nBroadcasted \`${eventType}\` event:`, event)
-      console.log(' snapshotRaw:\n ', JSON.stringify(snapshotRaw))
+      // console.log(' snapshotRaw:\n ', JSON.stringify(snapshotRaw))
     },
     value: (args) => {
       Notify.base({ ...args, eventType: EVENT_TYPE.VALUE })
     },
-    childAdded: ({ ref, snapshotRaw, ...args}) => {
-      Notify.base({ ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_ADDED })
+    childAdded: ({ bucketName, ref, snapshotRaw, ...args}) => {
+      Notify.base({ bucketName, ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_ADDED })
 
       // Deep child added
       const data = snapshotRaw.value
@@ -128,15 +132,15 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
           const childData = data[childKey]
           const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
           const prevChildKey = idx === 0 ? null : childKeys[idx - 1]
-          Notify.childAdded({ ref, snapshotRaw: childDataSnapshot, prevChildKey })
+          Notify.childAdded({ bucketName, ref: snapshotRaw.ref, snapshotRaw: childDataSnapshot, prevChildKey })
         })
       }
     },
     childChanged: (args) => {
       Notify.base({ ...args, eventType: EVENT_TYPE.CHILD_CHANGED })
     },
-    childRemoved: ({ ref, snapshotRaw, ...args}) => {
-      Notify.base({ ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_REMOVED })
+    childRemoved: ({ bucketName, ref, snapshotRaw, ...args}) => {
+      Notify.base({ bucketName, ref, snapshotRaw, ...args, eventType: EVENT_TYPE.CHILD_REMOVED })
 
       // Deep child removed
       const data = snapshotRaw.value
@@ -146,7 +150,7 @@ const notifyDiff = ({ io, service, bucketName, key, diff }) => {
           const childRef = `${ref}/${childKey}`
           const childData = data[childKey]
           const childDataSnapshot = SnapshotRaw({ ref: childRef, value: childData })
-          Notify.childRemoved({ ref, snapshotRaw: childDataSnapshot })
+          Notify.childRemoved({ bucketName, ref: snapshotRaw.ref, snapshotRaw: childDataSnapshot })
         })
       }
     },
