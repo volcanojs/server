@@ -1,0 +1,18 @@
+doctype html5
+html
+	head
+		title VolcanoDB
+		style
+			include ../../public/css/normalize.css
+			include ../../public/css/style.css
+		link(rel='stylesheet' href='/css/uikit.min.css')
+		script(src='/js/vue.min.js')
+		script(src='/js/socket.io.slim.js')
+		script(src='/js/uikit.min.js')
+	body
+		include ./header.pug
+		block content
+		include ./footer.pug
+		script(src='/js/uikit-icons.min.js')
+		
+		
