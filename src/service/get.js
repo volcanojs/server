@@ -1,4 +1,5 @@
 const { cluster, N1qlQuery } = require('../couchbase')
+const SnapshotRaw = require('../models/SnapshotRaw')
 module.exports = function ({ ref, bucketName }) {
   return new Promise((resolve, reject) => {
     if (!bucketName) return reject(new Error('`Project Name` not specified.'))
@@ -25,10 +26,10 @@ module.exports = function ({ ref, bucketName }) {
     
       if (!Array.isArray(results)) {
         // Document doesn't exsit
-        resolve(SnapshotRaw(null))
+        resolve(null)
       } else if (results.length === 0) {
         // Document exist but content doesn't exist
-        resolve(SnapshotRaw(null))
+        resolve(null)
       } else {
         const result = results[0]
         const resultKeys = Object.keys(result)

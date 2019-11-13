@@ -2,6 +2,7 @@ const isPlainObject = require('lodash.isplainobject')
 const service = require('../service')
 const { SnapshotRaw } = require('../models')
 const EVENT_TYPE = require('./eventType')
+const { orderedKeys } = require('../utils')
 
 module.exports = async ({ socket }) => {
   socket.on('volcano-on', async ({ eventType, query }) => {
@@ -10,6 +11,7 @@ module.exports = async ({ socket }) => {
     socket.join(room)
 
     try {
+      console.log({eventType, query})
       const data = await service.get(query)
       console.log(eventType)
       switch (eventType) {
@@ -24,7 +26,8 @@ module.exports = async ({ socket }) => {
           break
         case EVENT_TYPE.CHILD_ADDED:
           if (!data || !isPlainObject(data)) return
-          const keys = orderedeys(snapshotRaw.value)
+          const keys = data ? orderedKeys(data) : []
+          console.log(data, keys)
           const keysCount = keys.length
           let i = 0
           const sendOne = () => {
@@ -41,7 +44,7 @@ module.exports = async ({ socket }) => {
               }
             })
           }
-          if (keyCount) sendOne()
+          if (keysCount) sendOne()
           break
         default:
           socket.emit(`${room}-inited`)
